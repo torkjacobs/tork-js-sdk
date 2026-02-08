@@ -29,7 +29,7 @@ console.log(result.pii.types);  // ['ssn']
 console.log(result.receipt.receiptId);  // 'rcpt_...'
 ```
 
-## Supported Frameworks (10 Adapters)
+## Supported Frameworks (12 Adapters)
 
 ### AI SDKs & Frameworks
 - **OpenAI** - Chat completions, completions, embeddings with streaming
@@ -114,7 +114,7 @@ const response = await torkClient.governMessage({
 - **PII Detection**: SSN, credit cards, emails, phones, addresses, IP addresses, and more
 - **Automatic Redaction**: Replace sensitive data with type-specific placeholders
 - **Cryptographic Receipts**: SHA256 hashes for audit trails
-- **10 Framework Adapters**: OpenAI, Anthropic, LangChain.js, Vercel AI, Express, Fastify, Koa, Hono, Hapi, Next.js
+- **12 Framework Adapters**: OpenAI, Anthropic, LangChain.js, Vercel AI, Express, Fastify, Koa, Hono, Hapi, Next.js, Mistral, Groq
 - **Streaming Support**: Governed streaming for OpenAI, Anthropic, and Vercel AI
 - **TypeScript Support**: Full type definitions included
 
