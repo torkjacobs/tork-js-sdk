@@ -1,6 +1,6 @@
 {
   "name": "tork-governance",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "On-device AI governance SDK - PII detection, redaction, and cryptographic receipts",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

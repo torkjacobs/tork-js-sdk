@@ -29,7 +29,7 @@ console.log(result.pii.types);  // ['ssn']
 console.log(result.receipt.receiptId);  // 'rcpt_...'
 ```
 
-## Supported Frameworks (12 Adapters)
+## Supported Frameworks (22 Adapters)
 
 ### AI SDKs & Frameworks
 - **OpenAI** - Chat completions, completions, embeddings with streaming
@@ -44,6 +44,20 @@ console.log(result.receipt.receiptId);  // 'rcpt_...'
 - **Hono** - Lightweight middleware
 - **Hapi** - Plugin-based governance
 - **Next.js** - API route and middleware support
+- **NestJS** - Guards, interceptors, and pipes
+- **Remix** - Loader and action governance wrappers
+- **SvelteKit** - Load functions, form actions, and hooks
+- **Nuxt** - Server routes and H3 event handlers
+- **Astro** - Middleware and API route governance
+- **Elysia** - Plugin with beforeHandle/afterHandle hooks
+- **Deno Fresh** - Handler middleware and Fresh plugin
+- **Bun.serve** - Fetch handler and router governance
+
+### APIs & Protocols
+- **tRPC** - Middleware, transformers, and resolver governance
+- **GraphQL Yoga** - Plugin, context, and resolver governance
+- **Socket.io** - Event and emit middleware
+- **WebSocket** - ws server and handler governance
 
 ## Framework Examples
 
@@ -114,7 +128,7 @@ const response = await torkClient.governMessage({
 - **PII Detection**: SSN, credit cards, emails, phones, addresses, IP addresses, and more
 - **Automatic Redaction**: Replace sensitive data with type-specific placeholders
 - **Cryptographic Receipts**: SHA256 hashes for audit trails
-- **12 Framework Adapters**: OpenAI, Anthropic, LangChain.js, Vercel AI, Express, Fastify, Koa, Hono, Hapi, Next.js, Mistral, Groq
+- **22 Framework Adapters**: OpenAI, Anthropic, LangChain.js, Vercel AI, Express, Fastify, Koa, Hono, Hapi, Next.js, NestJS, Remix, SvelteKit, Nuxt, Astro, Elysia, Deno Fresh, Bun.serve, tRPC, GraphQL Yoga, Socket.io, WebSocket
 - **Streaming Support**: Governed streaming for OpenAI, Anthropic, and Vercel AI
 - **TypeScript Support**: Full type definitions included
 
