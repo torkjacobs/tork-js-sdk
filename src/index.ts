@@ -48,11 +48,18 @@ export interface GovernanceReceipt {
   processingTimeNs: bigint;
 }
 
+export interface GovernOptions {
+  region?: string[];
+  industry?: string;
+}
+
 export interface GovernanceResult {
   action: GovernanceAction;
   output: string;
   pii: PIIDetectionResult;
   receipt: GovernanceReceipt;
+  region?: string[];
+  industry?: string;
 }
 
 export interface TorkConfig {
@@ -234,8 +241,10 @@ export class Tork {
 
   /**
    * Apply governance to input text
+   * @param input - The text to govern
+   * @param options - Optional region and industry parameters for PII v1.1
    */
-  govern(input: string): GovernanceResult {
+  govern(input: string, options?: GovernOptions): GovernanceResult {
     const startTime = getNanoseconds();
 
     // Detect PII
@@ -280,6 +289,8 @@ export class Tork {
       output,
       pii,
       receipt,
+      ...(options?.region && { region: options.region }),
+      ...(options?.industry && { industry: options.industry }),
     };
   }
 
