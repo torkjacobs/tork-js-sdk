@@ -46,11 +46,35 @@ export interface GovernanceReceipt {
   action: GovernanceAction;
   policyVersion: string;
   processingTimeNs: bigint;
+  /** Session context echoed back when agent/session fields are provided. */
+  sessionContext?: SessionContext;
+}
+
+/**
+ * Agent/session context for multi-agent governance tracking.
+ */
+export interface SessionContext {
+  /** Identifier for the agent making the call. */
+  agent_id?: string;
+  /** Role of the agent: "planner", "worker", or "judge". */
+  agent_role?: string;
+  /** Groups all calls from the same agent session. */
+  session_id?: string;
+  /** Position in the conversation (1, 2, 3...). */
+  session_turn?: number;
 }
 
 export interface GovernOptions {
   region?: string[];
   industry?: string;
+  /** Identifier for the agent making the call. */
+  agent_id?: string;
+  /** Role of the agent: "planner", "worker", or "judge". */
+  agent_role?: string;
+  /** Groups all calls from the same agent session. */
+  session_id?: string;
+  /** Position in the conversation (1, 2, 3...). */
+  session_turn?: number;
 }
 
 export interface GovernanceResult {
@@ -60,6 +84,8 @@ export interface GovernanceResult {
   receipt: GovernanceReceipt;
   region?: string[];
   industry?: string;
+  /** Session context when agent/session fields are provided. */
+  sessionContext?: SessionContext;
 }
 
 export interface TorkConfig {
@@ -265,6 +291,17 @@ export class Tork {
     const endTime = getNanoseconds();
     const processingTimeNs = endTime - startTime;
 
+    // Build session context if any agent/session fields are provided
+    const sessionContext: SessionContext | undefined =
+      options?.agent_id ?? options?.agent_role ?? options?.session_id ?? options?.session_turn
+        ? {
+            ...(options?.agent_id != null && { agent_id: options.agent_id }),
+            ...(options?.agent_role != null && { agent_role: options.agent_role }),
+            ...(options?.session_id != null && { session_id: options.session_id }),
+            ...(options?.session_turn != null && { session_turn: options.session_turn }),
+          }
+        : undefined;
+
     // Generate receipt
     const receipt: GovernanceReceipt = {
       receiptId: generateReceiptId(),
@@ -274,6 +311,7 @@ export class Tork {
       action,
       policyVersion: this.config.policyVersion,
       processingTimeNs,
+      ...(sessionContext && { sessionContext }),
     };
 
     // Update stats
@@ -291,6 +329,7 @@ export class Tork {
       receipt,
       ...(options?.region && { region: options.region }),
       ...(options?.industry && { industry: options.industry }),
+      ...(sessionContext && { sessionContext }),
     };
   }
 
