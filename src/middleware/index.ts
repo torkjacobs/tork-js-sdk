@@ -101,3 +101,11 @@ export type { TorkYogaOptions, YogaPluginContext } from './graphql-yoga';
 // ws (WebSocket)
 export { torkWsServer, torkWsHandler, torkWsSend, torkWsBroadcast } from './ws';
 export type { TorkWsOptions, WsSocket, WsServer } from './ws';
+
+// Mastra
+export { TorkMastraAgent, TorkMastraToolWrapper, governMastraWorkflow, mastraGoverned } from './mastra';
+export type { TorkMastraOptions, MastraGovernanceResult } from './mastra';
+
+// Microsoft Agent Framework
+export { TorkMicrosoftAgent, TorkMicrosoftToolWrapper, governAgentChat, microsoftAgentGoverned } from './microsoft-agents';
+export type { TorkMicrosoftAgentOptions, MicrosoftAgentGovernanceResult, AgentMessage } from './microsoft-agents';

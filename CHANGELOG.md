@@ -2,6 +2,23 @@
 
 All notable changes to the Tork Governance JavaScript SDK will be documented in this file.
 
+## [0.10.0] - 2026-03-11
+
+### Added
+#### Mastra Adapter
+- **TorkMastraAgent** — Governed agent wrapper for Mastra
+- **TorkMastraToolWrapper** — Tool governance wrapper
+- **governMastraWorkflow** — Workflow step middleware
+- **mastraGoverned** — Decorator for agent.generate() calls
+- Full support for streaming and async patterns
+
+#### Microsoft Agent Framework Adapter
+- **TorkMicrosoftAgent** — Governed agent wrapper
+- **TorkMicrosoftToolWrapper** — Tool governance wrapper
+- **governAgentChat** — Multi-agent chat governance
+- **microsoftAgentGoverned** — Decorator for agent invocations
+- Full support for A2A, MCP, and AG-UI patterns
+
 ## [0.9.2] - 2026-03-09
 
 ### Added
