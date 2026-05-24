@@ -308,7 +308,7 @@ describe('Tork', () => {
       const t = new Tork({ defaultAction: 'deny' });
       const result = t.govern('SSN: 123-45-6789');
       expect(result.action).toBe('deny');
-      expect(result.output).toBe('SSN: 123-45-6789'); // Not redacted when action is deny
+      expect(result.output).toBe('SSN: [SSN_REDACTED]'); // Output is always redacted to prevent PII exposure
     });
 
     it('should handle multiple governs correctly', () => {

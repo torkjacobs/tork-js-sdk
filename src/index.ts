@@ -203,7 +203,7 @@ export function detectPII(
       detectedTypes.add(piiType);
       matches.push({
         type: piiType,
-        value: match[0],
+        value: '[REDACTED]',
         startIndex: match.index,
         endIndex: match.index + match[0].length,
       });
@@ -282,7 +282,7 @@ export class Tork {
 
     if (pii.hasPII) {
       action = this.config.defaultAction;
-      output = action === 'redact' ? pii.redactedText : input;
+      output = pii.redactedText;
     } else {
       action = 'allow';
       output = input;
