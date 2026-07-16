@@ -200,7 +200,7 @@ function governObject(
   if (typeof obj === 'string') {
     const result = tork.govern(obj);
     receipts.push(result.receipt);
-    return result.action === 'redact' || result.action === 'REDACT'
+    return result.action === 'redact'
       ? result.output
       : obj;
   }

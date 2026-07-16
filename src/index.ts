@@ -392,45 +392,15 @@ export class Tork {
 // Framework Middleware Exports
 // ============================================================================
 
-// Express
-export { torkExpressMiddleware } from './middleware/express';
-export type { TorkExpressOptions } from './middleware/express';
-
-// Fastify
-export { torkFastifyPlugin } from './middleware/fastify';
-export type { TorkFastifyOptions } from './middleware/fastify';
-
-// Koa
-export { torkKoaMiddleware } from './middleware/koa';
-export type { TorkKoaOptions } from './middleware/koa';
-
-// Hono
-export { torkHonoMiddleware } from './middleware/hono';
-export type { TorkHonoOptions } from './middleware/hono';
-
-// Next.js
-export { withTork, torkRouteHandler } from './middleware/nextjs';
-export type { TorkNextOptions, NextApiRequestWithTork } from './middleware/nextjs';
-
-// Vercel AI
-export { torkVercelAIMiddleware, withTorkVercelAI, createGovernedChat } from './middleware/vercel-ai';
-export type { GovernResult, VercelAIMessage, TorkVercelAIOptions } from './middleware/vercel-ai';
-
-// NestJS
-export { TorkNestJSModule, TorkNestJSGuard, TorkNestJSInterceptor, TorkGoverned, createTorkPipe } from './middleware/nestjs';
-export type { TorkNestJSOptions } from './middleware/nestjs';
-
-// LangChain
-export { TorkCallbackHandler, withTorkGovernance, createGovernedTool, torkGovernanceRunnable } from './middleware/langchain';
-export type { TorkLangChainOptions } from './middleware/langchain';
-
-// OpenAI
-export { TorkOpenAIClient, governChatCompletion, governCompletion, governEmbedding, openaiGoverned } from './middleware/openai';
-export type { TorkOpenAIOptions, OpenAIGovernanceResult, ChatMessage, ChatCompletionParams, CompletionParams, EmbeddingParams } from './middleware/openai';
-
-// Anthropic
-export { TorkAnthropicClient, governMessage, anthropicGoverned } from './middleware/anthropic';
-export type { TorkAnthropicOptions, AnthropicGovernanceResult, AnthropicMessage, ContentBlock, MessageParams } from './middleware/anthropic';
+// Re-export every framework adapter from the middleware barrel so all 24
+// adapters are available as top-level named exports from `tork-governance`.
+// This is the single source of truth for the adapter surface; the barrel is a
+// superset of the symbols previously enumerated here (it also adds Hono's
+// handler, the extended LangChain exports, Hapi, Mastra, Microsoft Agents, and
+// the 11 adapters — Remix, SvelteKit, Nuxt, Astro, Elysia, Deno Fresh,
+// Bun.serve, tRPC, GraphQL Yoga, Socket.io, WebSocket — that tsup never bundled
+// because it only builds from this entry file.
+export * from './middleware';
 
 // ============================================================================
 // Default Export

@@ -50,7 +50,7 @@ export function torkLoader<T>(
       const url = new URL(args.request.url);
       for (const [key, value] of url.searchParams.entries()) {
         const result = tork.govern(value);
-        if (result.action === 'redact' || result.action === 'REDACT') {
+        if (result.action === 'redact') {
           url.searchParams.set(key, result.output);
         }
         receipts.push(result.receipt);
@@ -111,7 +111,7 @@ export function torkAction<T>(
               receipts.push(result.receipt);
               governedFormData.append(
                 key,
-                result.action === 'redact' || result.action === 'REDACT'
+                result.action === 'redact'
                   ? result.output
                   : value
               );
@@ -182,7 +182,7 @@ function governObject(
   if (typeof obj === 'string') {
     const result = tork.govern(obj);
     receipts.push(result.receipt);
-    return result.action === 'redact' || result.action === 'REDACT'
+    return result.action === 'redact'
       ? result.output
       : obj;
   }

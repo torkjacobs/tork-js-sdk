@@ -55,13 +55,15 @@ const result2 = tork.govern(
 // Available industries: healthcare, finance, legal
 ```
 
-## Supported Frameworks (21 Adapters)
+## Supported Frameworks (24 Adapters)
 
 ### AI SDKs & Frameworks
 - **OpenAI** - Chat completions, completions, embeddings with streaming
 - **Anthropic** - Claude messages API with content block governance
 - **LangChain.js** - Callback handlers and runnable governance
 - **Vercel AI** - Streaming middleware for useChat/useCompletion
+- **Mastra** - Agent, tool wrapper, and workflow governance
+- **Microsoft Agent Framework** - Agent chat and tool call governance
 
 ### Web Frameworks
 - **Express** - Middleware for request/response governance
@@ -70,6 +72,7 @@ const result2 = tork.govern(
 - **Hono** - Lightweight middleware
 - **Next.js** - API route and middleware support
 - **NestJS** - Guards, interceptors, and pipes
+- **Hapi** - Plugin with request lifecycle governance
 - **Remix** - Loader and action governance wrappers
 - **SvelteKit** - Load functions, form actions, and hooks
 - **Nuxt** - Server routes and H3 event handlers
@@ -143,7 +146,7 @@ const response = await torkClient.governMessage({
 - **PII Detection**: SSN, credit cards, emails, phones, addresses, IP addresses, and more
 - **Automatic Redaction**: Replace sensitive data with type-specific placeholders
 - **Cryptographic Receipts**: SHA256 hashes for audit trails
-- **21 Framework Adapters**: OpenAI, Anthropic, LangChain.js, Vercel AI, Express, Fastify, Koa, Hono, Next.js, NestJS, Remix, SvelteKit, Nuxt, Astro, Elysia, Deno Fresh, Bun.serve, tRPC, GraphQL Yoga, Socket.io, WebSocket
+- **24 Framework Adapters**: OpenAI, Anthropic, LangChain.js, Vercel AI, Mastra, Microsoft Agent Framework, Express, Fastify, Koa, Hono, Next.js, NestJS, Hapi, Remix, SvelteKit, Nuxt, Astro, Elysia, Deno Fresh, Bun.serve, tRPC, GraphQL Yoga, Socket.io, WebSocket
 - **Streaming Support**: Governed streaming for OpenAI, Anthropic, and Vercel AI
 - **TypeScript Support**: Full type definitions included
 

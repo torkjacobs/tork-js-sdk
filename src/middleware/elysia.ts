@@ -82,7 +82,7 @@ export function torkElysiaPlugin(tork: Tork, options: TorkElysiaOptions = {}) {
       } else if (typeof response === 'string') {
         const result = tork.govern(response);
         receipts.push(result.receipt);
-        return result.action === 'redact' || result.action === 'REDACT'
+        return result.action === 'redact'
           ? result.output
           : response;
       }
@@ -108,7 +108,7 @@ export function torkElysiaDerive(tork: Tork, options: TorkElysiaOptions = {}) {
         if (typeof value === 'string') {
           const result = tork.govern(value);
           receipts.push(result.receipt);
-          governedQuery[key] = result.action === 'redact' || result.action === 'REDACT'
+          governedQuery[key] = result.action === 'redact'
             ? result.output
             : value;
         } else {
@@ -162,7 +162,7 @@ export function torkHandler<T>(
       } else if (typeof context.body === 'string') {
         const result = tork.govern(context.body);
         receipts.push(result.receipt);
-        context.body = result.action === 'redact' || result.action === 'REDACT'
+        context.body = result.action === 'redact'
           ? result.output
           : context.body;
       }
@@ -178,7 +178,7 @@ export function torkHandler<T>(
       } else if (typeof result === 'string') {
         const govResult = tork.govern(result);
         receipts.push(govResult.receipt);
-        return (govResult.action === 'redact' || govResult.action === 'REDACT'
+        return (govResult.action === 'redact'
           ? govResult.output
           : result) as T;
       }
@@ -199,7 +199,7 @@ function governObject(
   if (typeof obj === 'string') {
     const result = tork.govern(obj);
     receipts.push(result.receipt);
-    return result.action === 'redact' || result.action === 'REDACT'
+    return result.action === 'redact'
       ? result.output
       : obj;
   }

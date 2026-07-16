@@ -78,7 +78,7 @@ export function torkWsServer(
           if (!isBinary && typeof data === 'string') {
             const result = tork.govern(data);
             receipts.push(result.receipt);
-            const governedData = result.action === 'redact' || result.action === 'REDACT'
+            const governedData = result.action === 'redact'
               ? result.output
               : data;
             listener(governedData, isBinary);
@@ -86,7 +86,7 @@ export function torkWsServer(
             const text = data.toString('utf8');
             const result = tork.govern(text);
             receipts.push(result.receipt);
-            const governedData = result.action === 'redact' || result.action === 'REDACT'
+            const governedData = result.action === 'redact'
               ? result.output
               : text;
             listener(governedData, isBinary);
@@ -107,7 +107,7 @@ export function torkWsServer(
         if (typeof data === 'string') {
           const result = tork.govern(data);
           receipts.push(result.receipt);
-          const governedData = result.action === 'redact' || result.action === 'REDACT'
+          const governedData = result.action === 'redact'
             ? result.output
             : data;
           originalSend(governedData, cb);
@@ -115,7 +115,7 @@ export function torkWsServer(
           const text = data.toString('utf8');
           const result = tork.govern(text);
           receipts.push(result.receipt);
-          if (result.action === 'redact' || result.action === 'REDACT') {
+          if (result.action === 'redact') {
             originalSend(Buffer.from(result.output, 'utf8'), cb);
           } else {
             originalSend(data, cb);
@@ -153,7 +153,7 @@ export function torkWsHandler(
     if (governIncoming) {
       const result = tork.govern(governedData);
       receipts.push(result.receipt);
-      governedData = result.action === 'redact' || result.action === 'REDACT'
+      governedData = result.action === 'redact'
         ? result.output
         : governedData;
     }
@@ -177,7 +177,7 @@ export function torkWsSend(
     if (governOutgoing) {
       const result = tork.govern(data);
       receipts.push(result.receipt);
-      const governedData = result.action === 'redact' || result.action === 'REDACT'
+      const governedData = result.action === 'redact'
         ? result.output
         : data;
       ws.send(governedData, cb);
@@ -204,7 +204,7 @@ export function torkWsBroadcast(
       const receipts: any[] = [];
       const result = tork.govern(data);
       receipts.push(result.receipt);
-      governedData = result.action === 'redact' || result.action === 'REDACT'
+      governedData = result.action === 'redact'
         ? result.output
         : data;
     }

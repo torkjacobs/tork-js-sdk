@@ -176,7 +176,7 @@ function governValueSync(
   if (typeof value === 'string') {
     const result = tork.govern(value);
     receipts.push(result.receipt);
-    return result.action === 'redact' || result.action === 'REDACT'
+    return result.action === 'redact'
       ? result.output
       : value;
   }

@@ -111,7 +111,7 @@ export function torkBunHandler(
           const result = tork.govern(text);
           receipts.push(result.receipt);
 
-          if (result.action === 'redact' || result.action === 'REDACT') {
+          if (result.action === 'redact') {
             return new Response(result.output, {
               status: response.status,
               statusText: response.statusText,
@@ -190,7 +190,7 @@ function governObject(
   if (typeof obj === 'string') {
     const result = tork.govern(obj);
     receipts.push(result.receipt);
-    return result.action === 'redact' || result.action === 'REDACT'
+    return result.action === 'redact'
       ? result.output
       : obj;
   }

@@ -155,12 +155,12 @@ export const torkHapiPlugin = {
     });
 
     // Decorate request with helper method
-    server.decorate('request', 'getTorkResult', function () {
-      return (this as any).app.torkResult;
+    server.decorate('request', 'getTorkResult', function (this: any) {
+      return this.app.torkResult;
     });
 
-    server.decorate('request', 'getTorkReceiptId', function () {
-      const result = (this as any).app.torkResult;
+    server.decorate('request', 'getTorkReceiptId', function (this: any) {
+      const result = this.app.torkResult;
       return result?.receipt?.receiptId || null;
     });
   }
