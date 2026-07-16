@@ -1,22 +1,24 @@
 # Tork Governance JavaScript SDK
 
+This package (`tork-governance`) is the on-device engine — PII detection, redaction and local receipts, no API key and no network calls. For cloud governance with dashboard receipts and audit logs, use `@torknetwork/sdk` (`TorkClient`) instead.
+
 On-device AI governance with PII detection, redaction, and cryptographic receipts for Node.js and browser environments.
 
-[![npm version](https://badge.fury.io/js/@tork-governance%2Fsdk.svg)](https://badge.fury.io/js/@tork-governance%2Fsdk)
+[![npm version](https://badge.fury.io/js/tork-governance.svg)](https://badge.fury.io/js/tork-governance)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Installation
 
 ```bash
-npm install @tork-governance/sdk
+npm install tork-governance
 # or
-yarn add @tork-governance/sdk
+yarn add tork-governance
 ```
 
 ## Quick Start
 
 ```typescript
-import { Tork } from '@tork-governance/sdk';
+import { Tork } from 'tork-governance';
 
 const tork = new Tork();
 
@@ -34,7 +36,7 @@ console.log(result.receipt.receiptId);  // 'rcpt_...'
 Activate country-specific and industry-specific PII patterns with the optional `region` and `industry` parameters:
 
 ```typescript
-import { Tork } from '@tork-governance/sdk';
+import { Tork } from 'tork-governance';
 const tork = new Tork();
 
 // UAE regional detection — Emirates ID, +971 phone, PO Box
@@ -53,7 +55,7 @@ const result2 = tork.govern(
 // Available industries: healthcare, finance, legal
 ```
 
-## Supported Frameworks (22 Adapters)
+## Supported Frameworks (21 Adapters)
 
 ### AI SDKs & Frameworks
 - **OpenAI** - Chat completions, completions, embeddings with streaming
@@ -66,7 +68,6 @@ const result2 = tork.govern(
 - **Fastify** - Plugin-based governance
 - **Koa** - Middleware integration
 - **Hono** - Lightweight middleware
-- **Hapi** - Plugin-based governance
 - **Next.js** - API route and middleware support
 - **NestJS** - Guards, interceptors, and pipes
 - **Remix** - Loader and action governance wrappers
@@ -89,26 +90,16 @@ const result2 = tork.govern(
 
 ```typescript
 import express from 'express';
-import { torkExpressMiddleware } from '@tork-governance/sdk/middleware/express';
+import { torkExpressMiddleware } from 'tork-governance';
 
 const app = express();
 app.use(torkExpressMiddleware({ skipPaths: ['/health'] }));
 ```
 
-### Hapi Plugin
-
-```typescript
-import Hapi from '@hapi/hapi';
-import { torkHapiPlugin } from '@tork-governance/sdk/middleware/hapi';
-
-const server = Hapi.server({ port: 3000 });
-await server.register({ plugin: torkHapiPlugin, options: { skipPaths: ['/health'] } });
-```
-
 ### LangChain.js Integration
 
 ```typescript
-import { TorkCallbackHandler } from '@tork-governance/sdk/middleware/langchain';
+import { TorkCallbackHandler } from 'tork-governance';
 
 const model = new ChatOpenAI({ callbacks: [new TorkCallbackHandler()] });
 ```
@@ -152,7 +143,7 @@ const response = await torkClient.governMessage({
 - **PII Detection**: SSN, credit cards, emails, phones, addresses, IP addresses, and more
 - **Automatic Redaction**: Replace sensitive data with type-specific placeholders
 - **Cryptographic Receipts**: SHA256 hashes for audit trails
-- **22 Framework Adapters**: OpenAI, Anthropic, LangChain.js, Vercel AI, Express, Fastify, Koa, Hono, Hapi, Next.js, NestJS, Remix, SvelteKit, Nuxt, Astro, Elysia, Deno Fresh, Bun.serve, tRPC, GraphQL Yoga, Socket.io, WebSocket
+- **21 Framework Adapters**: OpenAI, Anthropic, LangChain.js, Vercel AI, Express, Fastify, Koa, Hono, Next.js, NestJS, Remix, SvelteKit, Nuxt, Astro, Elysia, Deno Fresh, Bun.serve, tRPC, GraphQL Yoga, Socket.io, WebSocket
 - **Streaming Support**: Governed streaming for OpenAI, Anthropic, and Vercel AI
 - **TypeScript Support**: Full type definitions included
 
