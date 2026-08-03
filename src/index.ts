@@ -4,6 +4,21 @@
  */
 
 import { createHash, randomBytes } from 'crypto';
+import {
+  buildCanonical,
+  canonicalJson,
+  computeSaltedFingerprint,
+  decidedAtPair,
+  generateFingerprintSalt,
+} from './dna-fingerprint';
+import {
+  disabledAttestationReport,
+  failedAttestationReport,
+  startAttestationReport,
+  type AttestationReport,
+} from './attestation-report';
+
+export type { AttestationReport } from './attestation-report';
 
 // ============================================================================
 // Types
@@ -86,12 +101,30 @@ export interface GovernanceResult {
   industry?: string;
   /** Session context when agent/session fields are provided. */
   sessionContext?: SessionContext;
+  /** Outcome of the optional tork.network attestation report for this call. */
+  report: AttestationReport;
 }
 
 export interface TorkConfig {
   policyVersion?: string;
   defaultAction?: GovernanceAction;
   customPatterns?: Record<string, RegExp>;
+  /**
+   * Optional. PII detection and the governance decision are ALWAYS computed
+   * on-device regardless of this value. Supplying a key additionally turns
+   * on best-effort, metadata-only reporting of each decision to
+   * https://tork.network/api/v1/attestations -- never input text, output
+   * text, or PII values. The resulting row is recorded as a CLIENT
+   * ATTESTATION (attested_by='client'): a self-reported, internally
+   * consistent claim that Tork did not itself execute or independently
+   * verify, not a Tork-verified decision. Reporting runs on a detached
+   * promise and never throws -- check GovernanceResult.report
+   * (attempted/succeeded/receiptId/reason) for the outcome, or call
+   * report.wait() for the confirmed outcome before proceeding. Omit this to
+   * keep the SDK fully local with zero network calls. Providing a value
+   * logs a one-time (per process) warning describing exactly what is sent.
+   */
+  apiKey?: string;
 }
 
 export interface TorkStats {
@@ -147,6 +180,55 @@ const PII_PATTERNS: Record<PIIType, { pattern: RegExp; redaction: string }> = {
     redaction: '[ACCOUNT_REDACTED]',
   },
 };
+
+// ============================================================================
+// Attestation reporting (opt-in via TorkConfig.apiKey)
+// ============================================================================
+
+// GovernanceAction -> the verdict vocabulary the attestations endpoint
+// persists (allow | redact | deny | flag; 'block' normalises to 'deny' on
+// the server, never used here). ESCALATE has no analogue in the documented
+// 3-value contract (allow|redact|deny); the endpoint's own validator accepts
+// a 4th verdict, 'flag', for exactly the human-in-the-loop case ESCALATE
+// represents, so it maps there rather than being silently coerced into
+// allow or deny.
+const ACTION_TO_VERDICT: Record<GovernanceAction, string> = {
+  allow: 'allow',
+  redact: 'redact',
+  deny: 'deny',
+  escalate: 'flag',
+};
+
+const API_KEY_REPORTING_MESSAGE =
+  'You passed an apiKey to tork-governance: reporting to tork.network is now ON. ' +
+  'PII detection, redaction, and the returned decision are still computed entirely ' +
+  'on-device and are never delayed or changed by this. After each govern() call, ' +
+  'this SDK separately POSTs a METADATA-ONLY attestation to ' +
+  'https://tork.network/api/v1/attestations: the action taken, PII type labels and ' +
+  'counts, a risk/score classification, policy labels, and a salted fingerprint. ' +
+  'It NEVER sends input text, output text, redacted content, or ' +
+  'PII values -- those never leave this device. The resulting row is recorded as a ' +
+  "CLIENT ATTESTATION (attested_by='client'): a self-reported, internally-consistent " +
+  'claim that Tork did not itself execute or independently verify, not a ' +
+  'Tork-verified decision. Reporting runs on a detached promise and never throws -- ' +
+  'check GovernanceResult.report (attempted/succeeded/receiptId/reason) for the ' +
+  'outcome, or call report.wait() if you need the confirmed outcome before ' +
+  'proceeding. Omit the apiKey option to keep this SDK fully local with zero ' +
+  'network calls.';
+
+// Module-level flag so the apiKey warning fires at most once per process.
+let apiKeyWarningEmitted = false;
+
+function warnApiKeyReporting(): void {
+  if (apiKeyWarningEmitted) return;
+  apiKeyWarningEmitted = true;
+  if (typeof process !== 'undefined' && typeof process.emitWarning === 'function') {
+    process.emitWarning(API_KEY_REPORTING_MESSAGE, 'UserWarning');
+  } else {
+    // eslint-disable-next-line no-console
+    console.warn(API_KEY_REPORTING_MESSAGE);
+  }
+}
 
 // ============================================================================
 // Utility Functions
@@ -237,7 +319,7 @@ export function detectPII(
  * Main Tork governance class
  */
 export class Tork {
-  private config: Required<TorkConfig>;
+  private config: Required<Omit<TorkConfig, 'apiKey'>> & Pick<TorkConfig, 'apiKey'>;
   private stats: {
     totalCalls: number;
     totalPIIDetected: number;
@@ -250,7 +332,12 @@ export class Tork {
       policyVersion: config.policyVersion ?? '1.0.0',
       defaultAction: config.defaultAction ?? 'redact',
       customPatterns: config.customPatterns ?? {},
+      apiKey: config.apiKey,
     };
+
+    if (config.apiKey) {
+      warnApiKeyReporting();
+    }
 
     this.stats = {
       totalCalls: 0,
@@ -322,11 +409,55 @@ export class Tork {
     this.stats.totalProcessingTimeNs += processingTimeNs;
     this.stats.actionCounts[action]++;
 
+    // Optional metadata-only reporting to tork.network. The decision above
+    // (action/output/pii/receipt) is already final by this point and
+    // reporting can never change it. Canonical-form/fingerprint
+    // construction is local and stays synchronous; the network call (and
+    // its one retry) runs on a detached promise so govern() always returns
+    // immediately regardless of endpoint latency, and a reporting failure
+    // never throws into the caller.
+    let report: AttestationReport;
+    if (this.config.apiKey) {
+      const apiKey = this.config.apiKey;
+      try {
+        const verdict = ACTION_TO_VERDICT[action];
+        const [ts, decidedAt] = decidedAtPair();
+        const canonical = buildCanonical({
+          policyVersion: this.config.policyVersion,
+          verdict,
+          piiTypes: pii.types,
+          piiCount: pii.count,
+          hitl: action === 'escalate',
+          ts,
+        });
+        const cjson = canonicalJson(canonical);
+        const salt = generateFingerprintSalt();
+        const fingerprint = computeSaltedFingerprint(cjson, salt);
+
+        report = startAttestationReport({
+          apiKey,
+          clientEventId: receipt.receiptId,
+          verdict,
+          canonicalJsonStr: cjson,
+          salt,
+          fingerprint,
+          decidedAt,
+        });
+      } catch (exc) {
+        report = failedAttestationReport(
+          `failed to build attestation: ${exc instanceof Error ? `${exc.name}: ${exc.message}` : String(exc)}`
+        );
+      }
+    } else {
+      report = disabledAttestationReport('apiKey not configured; reporting is disabled');
+    }
+
     return {
       action,
       output,
       pii,
       receipt,
+      report,
       ...(options?.region && { region: options.region }),
       ...(options?.industry && { industry: options.industry }),
       ...(sessionContext && { sessionContext }),
@@ -384,6 +515,12 @@ export class Tork {
     }
     if (config.customPatterns !== undefined) {
       this.config.customPatterns = config.customPatterns;
+    }
+    if (config.apiKey !== undefined) {
+      this.config.apiKey = config.apiKey;
+      if (config.apiKey) {
+        warnApiKeyReporting();
+      }
     }
   }
 }

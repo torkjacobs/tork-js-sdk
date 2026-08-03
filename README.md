@@ -1,6 +1,6 @@
 # Tork Governance JavaScript SDK
 
-This package (`tork-governance`) is the on-device engine — PII detection, redaction and local receipts, no API key and no network calls. For cloud governance with dashboard receipts and audit logs, use `@torknetwork/sdk` (`TorkClient`) instead.
+This package (`tork-governance`) is the on-device engine — PII detection, redaction and local receipts, computed entirely on-device with no network calls by default. Supplying an optional `apiKey` additionally turns on best-effort, metadata-only reporting to `https://tork.network/api/v1/attestations` (see [Optional: Anchored Attestations](#optional-anchored-attestations) below); the governance decision itself is never delayed or changed by this. For cloud governance with dashboard receipts and audit logs, use `@torknetwork/sdk` (`TorkClient`) instead.
 
 On-device AI governance with PII detection, redaction, and cryptographic receipts for Node.js and browser environments.
 
@@ -54,6 +54,28 @@ const result2 = tork.govern(
 // Available regions: AU, US, GB, EU, AE, SA, NG, IN, JP, CN, KR, BR
 // Available industries: healthcare, finance, legal
 ```
+
+## Optional: Anchored Attestations
+
+PII detection, redaction, and the returned governance decision are **always** computed entirely on-device, regardless of whether an `apiKey` is supplied. Supplying one additionally turns on best-effort, metadata-only reporting of each decision to `https://tork.network/api/v1/attestations`:
+
+```typescript
+const tork = new Tork({ apiKey: process.env.TORK_API_KEY });
+const result = tork.govern('My SSN is 123-45-6789');
+
+// The confirmed network outcome, if you need it before proceeding:
+await result.report.wait();
+console.log(result.report.succeeded, result.report.receiptId, result.report.reason);
+```
+
+What this does and doesn't do:
+
+- **Never blocks `govern()`.** The local decision (`action`/`output`/`pii`/`receipt`) is final before any network call is made, and reporting runs on a detached promise — `govern()` always returns immediately regardless of endpoint latency.
+- **Never throws.** A failed or slow report is reflected in `result.report` (`attempted`/`succeeded`/`receiptId`/`reason`), never as an exception. Call `result.report.wait(timeoutMs?)` if you need the confirmed outcome before proceeding — most callers don't.
+- **Sends metadata only, never content.** The request body carries only: the action taken, PII type labels and counts, a risk/score classification, policy labels, and a salted fingerprint. It never sends input text, output text, redacted content, or PII values — those never leave the device.
+- **Records a client attestation, not a Tork-verified decision.** The resulting row is recorded as a self-reported, internally-consistent claim (`attested_by: 'client'`) that Tork did not itself execute or independently verify.
+
+Supplying `apiKey` logs a one-time (per process) warning describing exactly what is sent. Omit it to keep this SDK fully local with zero network calls.
 
 ## Supported Frameworks (24 Adapters)
 
@@ -158,7 +180,8 @@ const response = await torkClient.governMessage({
 const tork = new Tork({
   policyVersion: '1.0.0',
   defaultAction: 'redact',  // 'allow' | 'deny' | 'redact' | 'escalate'
-  customPatterns: {}
+  customPatterns: {},
+  apiKey: undefined,  // optional — see "Optional: Anchored Attestations" above
 });
 
 // Apply governance
