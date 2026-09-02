@@ -55,6 +55,43 @@ const result2 = tork.govern(
 // Available industries: healthcare, finance, legal
 ```
 
+## Scanning tool results
+
+A tool result returned by an MCP server — or any external system you do not control — is untrusted input that is about to be appended to a model's context. `scanToolResult()` scans it first, on-device, for PII and prompt injection:
+
+```typescript
+import { Tork } from 'tork-governance';
+
+const tork = new Tork();
+const scan = tork.scanToolResult(
+  {
+    toolName: 'lookup_customer',
+    serverUri: 'mcp://crm.internal/customers',
+    payload: toolResult,          // whatever the server returned
+  },
+  { blockOnInjection: true }
+);
+
+if (scan.blocked) {
+  console.warn(scan.reason);      // do not append anything
+} else {
+  appendToContext(scan.sanitized); // PII masked in place
+}
+
+scan.findings;
+// [{ kind: 'pii', type: 'email', count: 1, location: '$.content[0].text' },
+//  { kind: 'injection', type: 'heuristic:instruction_override', count: 1, location: '$.content[0].text' }]
+```
+
+There is also a standalone `scanToolResult(input, options)` export with the same signature that returns `{ sanitized, findings, blocked, reason? }` and produces no receipt.
+
+- **PII uses the same on-device detector as `govern()`** — same patterns, same redaction labels. Matches are masked in place; the payload structure is otherwise unchanged, and a clean payload comes back untouched.
+- **Injection detection is heuristic.** A conservative pattern set (`tork-injection-heuristics-v1`) covering instruction-override phrases, role reassignment, and exfiltration URLs. Every injection finding is typed `heuristic:<name>` because that is exactly what it is: a regex match over untrusted text, with false positives and false negatives, not a verified determination. Without `blockOnInjection`, matches are reported and the result is still returned; with it, `sanitized` is `null` so no masked copy can be appended by accident.
+- **Zero network calls.** The scan is pure and synchronous. The payload never leaves the machine, whether or not an `apiKey` is configured.
+- **Recorded on the receipt as counts only.** `receipt.tool_result_scan` carries `attested_by: 'client'`, `capture_mode: 'edge'`, the tool name and server URI, counts by kind and type, the blocked flag, and the SDK version. It never carries the payload, a matched value, or a location path.
+
+**This is a client-side, client-attested control.** The scan runs in your process, and the receipt says so: Tork did not execute it and cannot verify it ran at all — the same honest boundary as every other edge attestation this SDK produces. **Gateway-side enforcement, where a caller cannot skip the scan, is a separate and later control.** Do not read a `tool_result_scan` block as proof that every tool result reaching a model was scanned; read it as a record of the scans a caller chose to run and report.
+
 ## Optional: Anchored Attestations
 
 PII detection, redaction, and the returned governance decision are **always** computed entirely on-device, regardless of whether an `apiKey` is supplied. Supplying one additionally turns on best-effort, metadata-only reporting of each decision to `https://tork.network/api/v1/attestations`:
@@ -167,6 +204,7 @@ const response = await torkClient.governMessage({
 
 - **PII Detection**: SSN, credit cards, emails, phones, addresses, IP addresses, and more
 - **Automatic Redaction**: Replace sensitive data with type-specific placeholders
+- **Tool-Result Scanning**: Scan MCP/external tool results for PII and prompt injection before they reach model context
 - **Cryptographic Receipts**: SHA256 hashes for audit trails
 - **24 Framework Adapters**: OpenAI, Anthropic, LangChain.js, Vercel AI, Mastra, Microsoft Agent Framework, Express, Fastify, Koa, Hono, Next.js, NestJS, Hapi, Remix, SvelteKit, Nuxt, Astro, Elysia, Deno Fresh, Bun.serve, tRPC, GraphQL Yoga, Socket.io, WebSocket
 - **Streaming Support**: Governed streaming for OpenAI, Anthropic, and Vercel AI
@@ -208,6 +246,24 @@ const result = detectPII('Contact: john@example.com');
 //   redactedText: 'Contact: [EMAIL_REDACTED]'
 // }
 ```
+
+### `scanToolResult` Function
+
+```typescript
+import { scanToolResult } from 'tork-governance';
+
+scanToolResult(
+  { toolName: string; serverUri?: string; payload: unknown },
+  { blockOnInjection?: boolean; customPatterns?: Record<string, RegExp>; maxDepth?: number }?
+): {
+  sanitized: unknown;              // PII masked in place; null when blocked
+  findings: Array<{ kind: 'pii' | 'injection'; type: string; count: number; location: string }>;
+  blocked: boolean;
+  reason?: string;                 // present only when blocked
+}
+```
+
+`Tork#scanToolResult` takes the same arguments and returns the same fields plus `receipt` and `report`. See [Scanning tool results](#scanning-tool-results).
 
 ### Utility Functions
 

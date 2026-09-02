@@ -17,41 +17,51 @@ import {
   startAttestationReport,
   type AttestationReport,
 } from './attestation-report';
+import { detectPII, type PIIDetectionResult } from './pii';
+import {
+  buildToolResultScanBlock,
+  scanInjectionCount,
+  scanPIICount,
+  scanPIITypes,
+  scanToolResult,
+  type ToolResultScanInput,
+  type ToolResultScanOptions,
+  type ToolResultScanReceiptBlock,
+  type ToolResultScanResult,
+} from './tool-result-scan';
+import { SDK_VERSION } from './version';
 
 export type { AttestationReport } from './attestation-report';
+
+// The PII detector lives in ./pii so ./tool-result-scan can reuse it without
+// importing this module back. Re-exported here so the public surface of
+// `tork-governance` is unchanged.
+export { detectPII, PII_PATTERNS } from './pii';
+export type { PIIType, PIIMatch, PIIDetectionResult } from './pii';
+
+export {
+  scanToolResult,
+  buildToolResultScanBlock,
+  INJECTION_HEURISTIC_PREFIX,
+  INJECTION_RULESET,
+  INJECTION_TYPES,
+} from './tool-result-scan';
+export type {
+  ToolResultFinding,
+  ToolResultFindingKind,
+  ToolResultScanInput,
+  ToolResultScanOptions,
+  ToolResultScanResult,
+  ToolResultScanReceiptBlock,
+} from './tool-result-scan';
+
+export { SDK_VERSION } from './version';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export type PIIType =
-  | 'ssn'
-  | 'credit_card'
-  | 'email'
-  | 'phone'
-  | 'address'
-  | 'ip_address'
-  | 'date_of_birth'
-  | 'passport'
-  | 'drivers_license'
-  | 'bank_account';
-
 export type GovernanceAction = 'allow' | 'deny' | 'redact' | 'escalate';
-
-export interface PIIDetectionResult {
-  hasPII: boolean;
-  types: PIIType[];
-  count: number;
-  matches: PIIMatch[];
-  redactedText: string;
-}
-
-export interface PIIMatch {
-  type: PIIType;
-  value: string;
-  startIndex: number;
-  endIndex: number;
-}
 
 export interface GovernanceReceipt {
   receiptId: string;
@@ -63,6 +73,14 @@ export interface GovernanceReceipt {
   processingTimeNs: bigint;
   /** Session context echoed back when agent/session fields are provided. */
   sessionContext?: SessionContext;
+  /**
+   * Present only on receipts produced by `Tork#scanToolResult`. Records the
+   * tool-result scan as a CLIENT-ATTESTED, edge-captured control: counts by
+   * kind and type, the tool it came from, and the SDK that ran it -- never
+   * the payload. snake_case and alphabetically ordered on purpose: this
+   * block is the cross-SDK portable artifact (see ./tool-result-scan).
+   */
+  tool_result_scan?: ToolResultScanReceiptBlock;
 }
 
 /**
@@ -105,6 +123,20 @@ export interface GovernanceResult {
   report: AttestationReport;
 }
 
+/**
+ * What `Tork#scanToolResult` returns: the pure scan result, plus the receipt
+ * recording it and the outcome of the optional attestation report. The four
+ * scan fields (`sanitized`, `findings`, `blocked`, `reason`) are exactly the
+ * shape of the standalone `scanToolResult()` function's return value, so
+ * either form can be consumed by the same code.
+ */
+export interface GovernedToolResultScanResult extends ToolResultScanResult {
+  /** Carries the `tool_result_scan` block. */
+  receipt: GovernanceReceipt;
+  /** Outcome of the optional tork.network attestation report for this scan. */
+  report: AttestationReport;
+}
+
 export interface TorkConfig {
   policyVersion?: string;
   defaultAction?: GovernanceAction;
@@ -133,53 +165,6 @@ export interface TorkStats {
   avgProcessingTimeNs: bigint;
   actionCounts: Record<GovernanceAction, number>;
 }
-
-// ============================================================================
-// PII Patterns
-// ============================================================================
-
-const PII_PATTERNS: Record<PIIType, { pattern: RegExp; redaction: string }> = {
-  ssn: {
-    pattern: /\b\d{3}-\d{2}-\d{4}\b/g,
-    redaction: '[SSN_REDACTED]',
-  },
-  credit_card: {
-    pattern: /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g,
-    redaction: '[CARD_REDACTED]',
-  },
-  email: {
-    pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
-    redaction: '[EMAIL_REDACTED]',
-  },
-  phone: {
-    pattern: /\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g,
-    redaction: '[PHONE_REDACTED]',
-  },
-  address: {
-    pattern: /\b\d{1,5}\s+\w+(?:\s+\w+)*\s+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct|Way|Place|Pl)\b/gi,
-    redaction: '[ADDRESS_REDACTED]',
-  },
-  ip_address: {
-    pattern: /\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g,
-    redaction: '[IP_REDACTED]',
-  },
-  date_of_birth: {
-    pattern: /\b(?:0[1-9]|1[0-2])\/(?:0[1-9]|[12]\d|3[01])\/(?:19|20)\d{2}\b/g,
-    redaction: '[DOB_REDACTED]',
-  },
-  passport: {
-    pattern: /\b[A-Z]{1,2}\d{6,9}\b/g,
-    redaction: '[PASSPORT_REDACTED]',
-  },
-  drivers_license: {
-    pattern: /\b[A-Z]\d{7,14}\b/g,
-    redaction: '[DL_REDACTED]',
-  },
-  bank_account: {
-    pattern: /\b\d{8,17}\b/g,
-    redaction: '[ACCOUNT_REDACTED]',
-  },
-};
 
 // ============================================================================
 // Attestation reporting (opt-in via TorkConfig.apiKey)
@@ -257,58 +242,37 @@ function getNanoseconds(): bigint {
   return process.hrtime.bigint();
 }
 
-// ============================================================================
-// PII Detection
-// ============================================================================
-
 /**
- * Detect PII in text and return detection results with redacted text
+ * Deterministic serialisation for hashing a tool-result payload: object keys
+ * sorted, so two structurally identical payloads always hash the same
+ * regardless of key insertion order. Cycles and non-JSON values (functions,
+ * symbols, bigints) collapse to a stable placeholder rather than throwing --
+ * a receipt must never fail to be produced because a tool returned something
+ * exotic. The output is fed straight into SHA256 and is never stored or sent.
  */
-export function detectPII(
-  text: string,
-  customPatterns?: Record<string, RegExp>
-): PIIDetectionResult {
-  const matches: PIIMatch[] = [];
-  const detectedTypes = new Set<PIIType>();
-  let redactedText = text;
+function stableStringify(value: unknown, seen: WeakSet<object> = new WeakSet()): string {
+  if (value === null) return 'null';
+  const type = typeof value;
+  if (type === 'string') return JSON.stringify(value);
+  if (type === 'number') return Number.isFinite(value as number) ? String(value) : '"[non-finite]"';
+  if (type === 'boolean') return String(value);
+  if (type === 'bigint') return `"${String(value)}n"`;
+  if (type === 'undefined') return '"[undefined]"';
+  if (type === 'function' || type === 'symbol') return `"[${type}]"`;
 
-  // Check each PII pattern
-  for (const [type, { pattern, redaction }] of Object.entries(PII_PATTERNS)) {
-    const piiType = type as PIIType;
-    // Reset regex lastIndex
-    pattern.lastIndex = 0;
+  const obj = value as object;
+  if (seen.has(obj)) return '"[circular]"';
+  seen.add(obj);
 
-    let match: RegExpExecArray | null;
-    const regex = new RegExp(pattern.source, pattern.flags);
-
-    while ((match = regex.exec(text)) !== null) {
-      detectedTypes.add(piiType);
-      matches.push({
-        type: piiType,
-        value: '[REDACTED]',
-        startIndex: match.index,
-        endIndex: match.index + match[0].length,
-      });
-    }
-
-    // Redact this pattern type
-    redactedText = redactedText.replace(new RegExp(pattern.source, pattern.flags), redaction);
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item, seen)).join(',')}]`;
   }
+  if (value instanceof Date) return JSON.stringify(value.toISOString());
 
-  // Apply custom patterns if provided
-  if (customPatterns) {
-    for (const [name, pattern] of Object.entries(customPatterns)) {
-      redactedText = redactedText.replace(pattern, `[${name.toUpperCase()}_REDACTED]`);
-    }
-  }
-
-  return {
-    hasPII: matches.length > 0,
-    types: Array.from(detectedTypes),
-    count: matches.length,
-    matches,
-    redactedText,
-  };
+  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+    a < b ? -1 : a > b ? 1 : 0
+  );
+  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v, seen)}`).join(',')}}`;
 }
 
 // ============================================================================
@@ -416,41 +380,12 @@ export class Tork {
     // its one retry) runs on a detached promise so govern() always returns
     // immediately regardless of endpoint latency, and a reporting failure
     // never throws into the caller.
-    let report: AttestationReport;
-    if (this.config.apiKey) {
-      const apiKey = this.config.apiKey;
-      try {
-        const verdict = ACTION_TO_VERDICT[action];
-        const [ts, decidedAt] = decidedAtPair();
-        const canonical = buildCanonical({
-          policyVersion: this.config.policyVersion,
-          verdict,
-          piiTypes: pii.types,
-          piiCount: pii.count,
-          hitl: action === 'escalate',
-          ts,
-        });
-        const cjson = canonicalJson(canonical);
-        const salt = generateFingerprintSalt();
-        const fingerprint = computeSaltedFingerprint(cjson, salt);
-
-        report = startAttestationReport({
-          apiKey,
-          clientEventId: receipt.receiptId,
-          verdict,
-          canonicalJsonStr: cjson,
-          salt,
-          fingerprint,
-          decidedAt,
-        });
-      } catch (exc) {
-        report = failedAttestationReport(
-          `failed to build attestation: ${exc instanceof Error ? `${exc.name}: ${exc.message}` : String(exc)}`
-        );
-      }
-    } else {
-      report = disabledAttestationReport('apiKey not configured; reporting is disabled');
-    }
+    const report = this.startReport({
+      clientEventId: receipt.receiptId,
+      action,
+      piiTypes: pii.types,
+      piiCount: pii.count,
+    });
 
     return {
       action,
@@ -462,6 +397,159 @@ export class Tork {
       ...(options?.industry && { industry: options.industry }),
       ...(sessionContext && { sessionContext }),
     };
+  }
+
+  /**
+   * Scan a tool result (MCP server response, or any external system's output)
+   * for PII and prompt injection BEFORE it is appended to model context, and
+   * record the scan on a receipt.
+   *
+   * The scan itself is the pure `scanToolResult()` function -- on-device,
+   * synchronous, zero network calls, using the same PII detector as
+   * `govern()`. This method adds the receipt: `receipt.tool_result_scan`
+   * carries counts by kind and type, the tool name, the server URI, whether
+   * the result was blocked, and the SDK version. It never carries the
+   * payload, a matched substring, or a location path.
+   *
+   * This is a CLIENT-SIDE, CLIENT-ATTESTED control: it runs in the caller's
+   * process, so the receipt records `attested_by: 'client'` and
+   * `capture_mode: 'edge'` -- Tork did not execute this scan and cannot
+   * verify it ran at all. Enforcement at the gateway, where a caller cannot
+   * skip the scan, is a separate and later control.
+   */
+  scanToolResult(
+    input: ToolResultScanInput,
+    options: ToolResultScanOptions = {}
+  ): GovernedToolResultScanResult {
+    const startTime = getNanoseconds();
+
+    const scan = scanToolResult(input, {
+      ...options,
+      customPatterns: options.customPatterns ?? this.config.customPatterns,
+    });
+
+    // Fixed mapping, deliberately NOT config.defaultAction: unlike govern(),
+    // this path always returns masked output when it returns any, so the
+    // action must describe what actually happened to the tool result. Every
+    // SDK mirroring this must use the same mapping.
+    //   blocked            -> deny     (nothing is returned to append)
+    //   injection detected -> escalate (returned, flagged for a human)
+    //   PII masked         -> redact
+    //   nothing found      -> allow
+    const piiTypes = scanPIITypes(scan.findings);
+    const piiCount = scanPIICount(scan.findings);
+    const injectionCount = scanInjectionCount(scan.findings);
+
+    let action: GovernanceAction;
+    if (scan.blocked) {
+      action = 'deny';
+    } else if (injectionCount > 0) {
+      action = 'escalate';
+    } else if (piiCount > 0) {
+      action = 'redact';
+    } else {
+      action = 'allow';
+    }
+
+    const endTime = getNanoseconds();
+    const processingTimeNs = endTime - startTime;
+
+    // Hashes, not content: hashText is SHA256, so neither the payload nor the
+    // sanitized copy is recoverable from the receipt. A blocked scan has no
+    // output to hash and records the hash of the empty string.
+    const receipt: GovernanceReceipt = {
+      receiptId: generateReceiptId(),
+      timestamp: new Date().toISOString(),
+      inputHash: hashText(stableStringify(input.payload)),
+      outputHash: hashText(scan.blocked ? '' : stableStringify(scan.sanitized)),
+      action,
+      policyVersion: this.config.policyVersion,
+      processingTimeNs,
+      tool_result_scan: buildToolResultScanBlock({
+        toolName: input.toolName,
+        serverUri: input.serverUri,
+        result: scan,
+        sdkVersion: SDK_VERSION,
+      }),
+    };
+
+    this.stats.totalCalls++;
+    if (piiCount > 0) {
+      this.stats.totalPIIDetected++;
+    }
+    this.stats.totalProcessingTimeNs += processingTimeNs;
+    this.stats.actionCounts[action]++;
+
+    // Reporting, when an apiKey is configured, uses the SAME attestation
+    // contract as govern() and adds no fields to it. The tool_result_scan
+    // block is NOT transmitted: POST /api/v1/attestations validates a fixed
+    // field set and there is no column for it, so sending it would be
+    // silently dropped -- and a silently dropped block would read, to a
+    // caller, exactly like a recorded one. What the endpoint does receive is
+    // the decision this scan produced (deny/flag/redact/allow) plus the PII
+    // type labels and count, which it already accepts and re-derives.
+    const report = this.startReport({
+      clientEventId: receipt.receiptId,
+      action,
+      piiTypes,
+      piiCount,
+    });
+
+    return { ...scan, receipt, report };
+  }
+
+  /**
+   * Optional metadata-only reporting to tork.network, shared by govern() and
+   * scanToolResult(). The local decision is always already final by the time
+   * this is called and reporting can never change it. Canonical-form and
+   * fingerprint construction are local and stay synchronous; the network call
+   * (and its one retry) runs on a detached promise, so the caller returns
+   * immediately regardless of endpoint latency and a reporting failure never
+   * throws into it.
+   *
+   * Every row this produces is recorded server-side as capture_mode='edge',
+   * attested_by='client' -- the endpoint hardcodes both; they are not fields
+   * a client can assert.
+   */
+  private startReport(params: {
+    clientEventId: string;
+    action: GovernanceAction;
+    piiTypes: string[];
+    piiCount: number;
+  }): AttestationReport {
+    if (!this.config.apiKey) {
+      return disabledAttestationReport('apiKey not configured; reporting is disabled');
+    }
+    const apiKey = this.config.apiKey;
+    try {
+      const verdict = ACTION_TO_VERDICT[params.action];
+      const [ts, decidedAt] = decidedAtPair();
+      const canonical = buildCanonical({
+        policyVersion: this.config.policyVersion,
+        verdict,
+        piiTypes: params.piiTypes,
+        piiCount: params.piiCount,
+        hitl: params.action === 'escalate',
+        ts,
+      });
+      const cjson = canonicalJson(canonical);
+      const salt = generateFingerprintSalt();
+      const fingerprint = computeSaltedFingerprint(cjson, salt);
+
+      return startAttestationReport({
+        apiKey,
+        clientEventId: params.clientEventId,
+        verdict,
+        canonicalJsonStr: cjson,
+        salt,
+        fingerprint,
+        decidedAt,
+      });
+    } catch (exc) {
+      return failedAttestationReport(
+        `failed to build attestation: ${exc instanceof Error ? `${exc.name}: ${exc.message}` : String(exc)}`
+      );
+    }
   }
 
   /**

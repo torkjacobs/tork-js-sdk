@@ -2,6 +2,38 @@
 
 All notable changes to the Tork Governance JavaScript SDK will be documented in this file.
 
+## [0.12.0] - 2026-09-02
+
+### Added
+- **`scanToolResult()`** — scan a tool result (MCP server response, or any external
+  system's output) for PII and prompt injection **before** it is appended to model
+  context. On-device and synchronous: zero network calls, payload never leaves the
+  machine. Available as a standalone function and as `Tork#scanToolResult`, which
+  additionally produces a receipt.
+- **PII detection reuses the existing on-device detector** (`detectPII`) — no second
+  scanner. It moved to `src/pii.ts` so the scanner can import it without a cycle;
+  `detectPII`, `PII_PATTERNS` and the PII types are still exported from the package
+  entry, unchanged.
+- **Prompt-injection heuristics** (`tork-injection-heuristics-v1`) — a conservative
+  pattern set covering instruction override, role reassignment, and exfiltration
+  URLs. The SDK had none before. Every injection finding is typed
+  `heuristic:<name>` so a pattern match can never be read as a verified
+  determination.
+- **`receipt.tool_result_scan`** — records the scan as a client-attested, edge-captured
+  control: `attested_by: 'client'`, `capture_mode: 'edge'`, counts by kind and type,
+  tool name, server URI, blocked flag, and SDK version. Counts only — never the
+  payload, a matched value, or a location path.
+- `options.blockOnInjection` — when the heuristics fire, block the result: `sanitized`
+  becomes `null` and `reason` explains the block.
+
+### Notes
+- Tool-result scanning is a **client-side, client-attested** control. Gateway-side
+  enforcement is a separate, later control.
+- The `tool_result_scan` block is local to the receipt. `POST /api/v1/attestations`
+  validates a fixed field set with no column for it, so it is deliberately not
+  transmitted; the attestation carries only the decision, PII type labels and count
+  the endpoint already accepts.
+
 ## [0.10.0] - 2026-03-11
 
 ### Added
