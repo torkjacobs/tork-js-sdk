@@ -39,6 +39,22 @@ export type { AttestationReport } from './attestation-report';
 export { detectPII, PII_PATTERNS } from './pii';
 export type { PIIType, PIIMatch, PIIDetectionResult } from './pii';
 
+// The country layer added in 0.13.0: 23 country profiles and 50 patterns
+// generated from the cloud's own registry, with the 20 check digits.
+export {
+  detectCountryPII,
+  inferRegions,
+  patternsForRegions,
+  applyRedactions,
+  KEYWORD_WINDOW_BEFORE,
+  KEYWORD_WINDOW_AFTER,
+  TORK_PII_REGISTRY_VERSION,
+} from './pii-country';
+export type { CountryPIIMatch } from './pii-country';
+export { TORK_PII_PATTERNS } from './pii-registry';
+export type { TorkPiiPattern } from './pii-registry';
+export { CHECKSUM_FUNCTIONS } from './pii-checksums';
+
 export {
   scanToolResult,
   buildToolResultScanBlock,
@@ -325,7 +341,7 @@ export class Tork {
     const startTime = getNanoseconds();
 
     // Detect PII
-    const pii = detectPII(input, this.config.customPatterns);
+    const pii = detectPII(input, this.config.customPatterns, options?.region);
 
     // Determine action
     let action: GovernanceAction;
