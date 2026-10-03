@@ -2,6 +2,26 @@
 
 All notable changes to the Tork Governance JavaScript SDK will be documented in this file.
 
+## [0.14.0] - 2026-10-03
+
+### Added
+- Agent telemetry fields on `govern()`: optional `agent_id`, `agent_role`,
+  `session_id` and `session_turn` (integer). Passed through to
+  `sessionContext` on the result and receipt when set, omitted when not.
+  Tests in `tests/telemetry.test.ts`; documented in the README.
+- PII parity test (`tests/pii-parity.test.ts`): every declared `PIIType` must
+  have a pattern and redaction token, plus a positive and a negative example.
+
+### Fixed
+- `govern()` dropped `sessionContext` when the first set field was falsy
+  (e.g. `session_turn: 0`, or `agent_id: ''` alongside other fields). Now
+  checks each field for null/undefined.
+
+### Removed
+- None. All 10 declared PII types (ssn, credit_card, email, phone, address,
+  ip_address, date_of_birth, passport, drivers_license, bank_account) already
+  had patterns; none had to be dropped from the declared list.
+
 ## [0.13.0] - 2026-09-25
 
 ### Added
