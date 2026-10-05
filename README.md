@@ -255,6 +255,28 @@ const stats = tork.getStats();
 tork.resetStats();
 ```
 
+### Agent telemetry fields
+
+`govern()` accepts four optional agent/session fields (snake_case, matching the
+cross-SDK wire names). Each is passed through to `result.sessionContext` and
+`result.receipt.sessionContext` when set and omitted when not. They never
+change the governance decision, and they are not part of the metadata-only
+attestation sent to tork.network.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `agent_id` | string | Identifier of the calling agent |
+| `agent_role` | string | `"planner"`, `"worker"` or `"judge"` |
+| `session_id` | string | Groups all calls from one agent session |
+| `session_turn` | integer | Position in the conversation (1, 2, 3...) |
+
+```typescript
+const r = tork.govern(text, {
+  agent_id: 'agent-7', agent_role: 'worker', session_id: 's-42', session_turn: 3,
+});
+r.sessionContext; // { agent_id: 'agent-7', agent_role: 'worker', session_id: 's-42', session_turn: 3 }
+```
+
 ### `detectPII` Function
 
 ```typescript
@@ -311,6 +333,12 @@ generateReceiptId();  // 'rcpt_a1b2c3...'
 | Passport | AB1234567 | [PASSPORT_REDACTED] |
 | Driver's License | D1234567 | [DL_REDACTED] |
 | Bank Account | 12345678901234 | [ACCOUNT_REDACTED] |
+
+All ten types above have a detection pattern, enforced by
+`tests/pii-parity.test.ts`, which checks a positive and a negative example for
+each. Adding a type without a pattern fails the build. None were removed in
+0.14.0. `passport`, `drivers_license` and `bank_account` are shape heuristics
+(no check digit) and can overlap one another.
 
 ### Country types
 

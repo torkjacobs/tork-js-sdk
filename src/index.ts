@@ -360,7 +360,10 @@ export class Tork {
 
     // Build session context if any agent/session fields are provided
     const sessionContext: SessionContext | undefined =
-      options?.agent_id ?? options?.agent_role ?? options?.session_id ?? options?.session_turn
+      options?.agent_id != null ||
+      options?.agent_role != null ||
+      options?.session_id != null ||
+      options?.session_turn != null
         ? {
             ...(options?.agent_id != null && { agent_id: options.agent_id }),
             ...(options?.agent_role != null && { agent_role: options.agent_role }),
